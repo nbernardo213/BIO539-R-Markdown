@@ -1,0 +1,129 @@
+---
+title: "US Research and Development Spending Analysis"
+author: "Nicholas Bernardo"
+date: "April 21, 2019"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(ggplot2)
+library(tidyverse)
+library(psych)
+
+climate <- read.csv(file = "C:/Users/SIS Lab Admin/Documents/Bio539/climate_spending.csv")
+energy <- read.csv(file = "C:/Users/SIS Lab Admin/Documents/Bio539/energy_spending.csv")
+fed <- read.csv(file = "C:/Users/SIS Lab Admin/Documents/Bio539/fed_r_d_spending.csv")
+
+names(climate) <- c("Department","Year","R&D Spending Cl")
+names(energy) <- c("Department","Year","R&D Spending En")
+names(fed) <- c("Department","Year","R&D Budget","Total Fed. Gov. Spending","Total Discretionary Spending","Total US GDP")
+climate<-aggregate(climate['R&D Spending Cl'], by=climate['Year'], sum)
+
+energy<-aggregate(energy['R&D Spending En'], by=energy['Year'], sum)
+
+fedBudg<- aggregate(fed['R&D Budget'],by=fed['Year'],sum)
+
+
+fed$Department<- NULL
+fed$`R&D Budget`<-NULL
+
+fedtest<-left_join(fedBudg,fed,by='Year')
+
+fedtest<-unique(fedtest)
+
+combined<-left_join(energy,climate)
+
+combined<-left_join(combined,fedtest)
+
+combined<-filter(combined,!(is.na(combined$`R&D Spending Cl`)))
+
+combinedGat<-gather(combined,key="Spending",value = "USD",`R&D Spending En`:`Total US GDP`)
+
+as.factor(combinedGat$Spending)
+
+GDPData<-cbind(fed$year,fed$gdp)
+
+
+```
+
+# Introduction
+
+  In this report, the patterns and trends of total research and developement (R&D) spending is investigated for the climate and energy sectors. Utilizing R&D budgetting and spending information as well as federal government and United States (US) financial data, an investigation of R&D spending habbits is performed. Section 1 of this analysis provides an overview of the data as well as visualizations to support generated descriptive statistics. The section following (Section 2) performs correlation tests between the variables included in the datasets as well as normality tests to determine the methods of analysis that can be conducted. For all statistical tests, and alpha value of 0.05 is used. These findings will be described and potential causes for correlation will be hypothesized. 
+  The following hypotheses will be performed:  
+
+  H1: The R&D Spending for the Energy and Climate sector is positively correlated with the Total US GDP.  
+  H2: The R&D Spending for the Energy and Climate sector follow a normal distribution.  
+    
+  
+#Section 1: General Trends
+  
+  Spending habits for departments within the Energy and Climate sectors are combined by year, resulting in total annual spendings per sector. Figure 1 presents a graph of the total spending by year within the energy sector and climate sector as well as federal government financial standings.   
+  
+```{r, echo=FALSE,results='hide',fig.keep='all'}
+
+ggplot(combinedGat,aes(x=Year,y=USD,color=factor(Spending,labels=c("R&D Spending (Climate)","R&D Spending (Energy)","R&D Budget","Total Federal Spending","Total Discretionary Spending","US GDP"))))+geom_point()+geom_line()+scale_color_discrete(name="Financials")+ylab("USD")+ggtitle("Figure 1: Financial Behavior 2000-2017")
+```
+
+ The graph in Figure 1 and the descriptive statistics in Table 1 indicate that there seems to be an increasing trend in the Energy sector while the Climate sector seems to be spending R&D funds rather consistently. Additionally, the Energy sector spends much larger amounts of money (a mean of \$`r mean(combined$'R&D Spending En')`) on R&D than the Climate sector does (a mean of \$`r mean(combined$'R&D Spending Cl')`).
+```{r, echo=FALSE,fig.keep='all'}
+summary(combined)
+
+```
+Table 1: Descriptive Statistics of R&D Spending in USD.    
+
+
+#Section 2: Correlation Testing
+
+  In order to test H1, a correlation matrix is generated (Table 2). Any combinations with a correlation greater than |0.80| is considered highly correlated. 
+  
+```{r, echo=FALSE,fig.keep='all'}
+
+round(cor(combined),3)
+
+```
+```{r echo=FALSE,results='hide'}
+cor.test(combined$Year,combined$`R&D Spending En`)
+cor.test(combined$Year,combined$`Total Fed. Gov. Spending`)
+cor.test(combined$Year,combined$`Total Discretionary Spending`)
+cor.test(combined$Year,combined$`Total US GDP`)
+
+enGov<-cor.test(combined$`R&D Spending En`,combined$`Total Fed. Gov. Spending`)
+enGDP<-cor.test(combined$`R&D Spending En`,combined$`Total US GDP`)
+
+cor.test(combined$`R&D Spending En`,combined$`Total Discretionary Spending`)
+cor.test(combined$`R&D Spending En`,combined$`Total US GDP`)
+
+cor.test(combined$`Total Fed. Gov. Spending`,combined$`Total Discretionary Spending`)
+cor.test(combined$`Total Fed. Gov. Spending`,combined$`Total US GDP`)
+
+cor.test(combined$`Total Discretionary Spending`,combined$`Total US GDP`)
+
+ClGDP<-cor.test(combined$`R&D Spending Cl`,combined$`Total US GDP`)
+```
+ Table 2: Correlation matrix of financials from 2000-2017.  
+ 
+ 
+ 
+  Of the compared values, 9 combinations are highly correlated. Of the highly correlated values, all are found to be significant. As might be expected, the year has a high and significant correlation with the three US government financials. It can be assumed that as time progresses, the economic standing of the US, in general, has continued to progress. With this progress,  federal spending and GDP are expected to increase. Other highly correlated factors are between R&D Spending in the Energy sector and both total federal spending (p-value = `r round(enGov$p.value,3)`) and US GDP (p-value = `r round(enGDP$p.value,3)`). These correlations are also justified logically due to GDP increasing. As GDP increases, more money can be alotted to R&D Spending. The final highly correlated combinations are between total federal spending, total discretionary spending, and US GDP. These findings are not surprising, as total spending is dependent on discretionary spending and GDP indicates the ability to spend more.  
+  
+  These findings indicate that the R&D spending in  the Energy sector is positively correlated to the US GDP. Despite this, the R&D spending in the Climate sector is not considered highly correlated, but is positively correlated with the US GDP with marginal significance (p-value = `r round(ClGDP$p.value,3)`). This partially agrees with H1, although conflicts with respect to Climate spending.
+    
+  Another important characteristic of this data is its normality. Many useful statistics require data to follow a normal distribution due to underlying assumptions. The normality of each factor is tested in order to identify which, if any, of the data can be used in parametric analyses. The following are results of Shapiro  Wilk tests on the data:
+  
+```{r}
+Financials<-c("R&D Spending En","R&D Spending Cl","R&D Budget","Total Fed. Gov. Spending","Total Discretionary Spending","Total US GDP")
+Shapiro_P_Value<-c(shapiro.test(combined$`R&D Spending En`)$p.value,shapiro.test(combined$`R&D Spending Cl`)$p.value,shapiro.test(combined$`R&D Budget`)$p.value,shapiro.test(combined$`Total Fed. Gov. Spending`)$p.value,shapiro.test(combined$`Total Discretionary Spending`)$p.value,shapiro.test(combined$`Total US GDP`)$p.value)
+
+normaltest<-data.frame(Financials,Shapiro_P_Value)
+
+
+normaltest
+```
+Table 3: Normality test for financials.  
+
+Table 3 shows that the only factor that does not follow a normal distribution is the federal R&D budget data. Other interesting factors are the R&D spending in the Energy sector and the total federal spending which are marginally insignificant (p-value = `r normaltest[1,2]` and `r normaltest[4,2]` respectively). These tests agree, for the most part, with H2 as the R&D spending in both the Energy and Climate sectors both follow a normal distribution.   
+
+With the results from the correlation and normality tests it is clear that parametric tests such as regression models may be difficult to conduct as there are several collinearities between factors. Despite this, individual factors may be analyzed, aside from R&D budget data, using parametric tests. 
